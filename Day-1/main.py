@@ -38,12 +38,12 @@ def similarity_score(list_a: list[int], list_b: list[int]) -> int:
     return similarity
 
 
-def parse_input() -> tuple[list[int], list[int]]:
+def parse_input(path: str = "input.txt") -> tuple[list[int], list[int]]:
     list_a = []
     list_b = []
 
     # Read the input file. It's two columns of ints seperated by whitespace
-    with open("input.txt") as f:
+    with open(path) as f:
         for line in f:
             a, b = line.split()
             list_a.append(int(a))

@@ -70,11 +70,11 @@ def filter_safe(reports: list[list[int]], safe_threshold: int = 0):
 def filter_unsafe(reports: list[list[int]], safe_threshold: int = 0):
     return filter_reports(reports, safe_threshold, FilterMode.UNSAFE)
 
-def parse_input() -> list[list[int]]:
+def parse_input(path: str = "input.txt") -> list[list[int]]:
     reports = []
 
     # Read the input file. It's rows of whitespace seperated ints
-    with open("input.txt") as f:
+    with open(path) as f:
         for line in f:
             levels = list(map(int, line.split()))
             reports.append(levels)
