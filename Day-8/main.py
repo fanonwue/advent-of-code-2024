@@ -32,31 +32,33 @@ def get_distances(positions: Dict[str, list[tuple[int, int]]]) -> Distances:
                     distances[pos].append(dis)
     return distances
 
-def get_antinode_positions(rows: list[str], distances: Distances, inline: bool = False) -> set[tuple[int, int]]:
+def get_antinode_positions(distances: Distances, inline: bool = False) -> set[tuple[int, int]]:
     is_in_field = lambda x, y: 0 <= x < len(rows) and 0 <= y < len(rows[x])
 
-    # turn each row into a list of characters
-    antinodes: list[tuple[int, int]] = []
+    # Create a set to save our antinode positions to
+    # There can be multiple antinodes at a position, but we only need it once
+    antinodes: set[tuple[int, int]] = set()
     for pos, dis_list in distances.items():
         for dis in dis_list:
             x, y = pos[0] + dis[0], pos[1] + dis[1]
 
-            # For Part 1, we only want the one antinode per direction, so we stop the loop after checking the first one
+            # For Part 1, we only want the one antinode per direction, so we continue the loop after checking the first one
+            # without executing the rest
             if not inline:
                 if is_in_field(x, y):
-                    antinodes.append((x, y))
+                    antinodes.add((x, y))
                 continue
 
             # For Part 2, we want all antinodes within the line
             x, y = pos[0], pos[1]
             while is_in_field(x, y):
-                antinodes.append((x, y))
+                antinodes.add((x, y))
                 # Move to the next positions in the line
                 x += dis[0]
                 y += dis[1]
 
     # Only return a unique set of antinodes
-    return set(antinodes)
+    return antinodes
 
 
 def parse_input(path: str = "input.txt") -> list[str]:
@@ -75,9 +77,9 @@ if __name__ == '__main__':
     distances = get_distances(positions)
 
     # Part 1
-    antinode_positions = get_antinode_positions(rows, distances)
+    antinode_positions = get_antinode_positions(distances)
     print(f"Antinodes found: {len(antinode_positions)}")
 
     # Part 2
-    inline_antinode_positions = get_antinode_positions(rows, distances, inline=True)
+    inline_antinode_positions = get_antinode_positions(distances, inline=True)
     print(f"Inline Antinodes found: {len(inline_antinode_positions)}")
