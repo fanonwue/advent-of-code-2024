@@ -1,10 +1,10 @@
 from typing import Dict
 
-Positions = Dict[str, list[tuple[int, int]]]
+PositionsPerFrequency = Dict[str, list[tuple[int, int]]]
 Distances = Dict[tuple[int, int], list[tuple[int, int]]]
 
-def get_positions(rows: list[str]) -> Positions:
-    positions: Positions = {}
+def get_positions(rows: list[str]) -> PositionsPerFrequency:
+    positions: PositionsPerFrequency = {}
 
     # Find all antennas and map them to their frequency
     # The resulting dict has a str key that represents the frequency, and the value is a list tuples that represent
@@ -17,7 +17,7 @@ def get_positions(rows: list[str]) -> Positions:
                 positions[c].append((x, y))
     return positions
 
-def get_distances(positions: Dict[str, list[tuple[int, int]]]) -> Distances:
+def get_distances(positions: PositionsPerFrequency) -> Distances:
     distances: Distances = {}
 
     # Calculate the distance between all antennas of a given frequency
