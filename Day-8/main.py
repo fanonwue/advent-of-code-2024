@@ -42,9 +42,10 @@ def get_antinode_positions(rows: list[str], distances: Distances, inline: bool =
             x, y = pos[0] + dis[0], pos[1] + dis[1]
 
             # For Part 1, we only want the one antinode per direction, so we stop the loop after checking the first one
-            if not inline and is_in_field(x, y):
-                antinodes.append((x, y))
-                break
+            if not inline:
+                if is_in_field(x, y):
+                    antinodes.append((x, y))
+                continue
 
             # For Part 2, we want all antinodes within the line
             x, y = pos[0], pos[1]
