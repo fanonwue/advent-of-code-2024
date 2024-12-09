@@ -42,11 +42,13 @@ def get_antinode_positions(distances: Distances, inline: bool = False) -> set[tu
         for dis in dis_list:
             x, y = pos[0] + dis[0], pos[1] + dis[1]
 
+            # Add this antinode to the set antinodes if it is within the current field
+            if is_in_field(x, y):
+                antinodes.add((x, y))
+
             # For Part 1, we only want the one antinode per direction, so we continue the loop after checking the first one
             # without executing the rest
             if not inline:
-                if is_in_field(x, y):
-                    antinodes.add((x, y))
                 continue
 
             # For Part 2, we want all antinodes within the line
