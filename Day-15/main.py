@@ -1,5 +1,7 @@
 from Robot import Robot
 from util import ParsedMap, Direction, Point, Mode
+from copy import deepcopy
+from functools import cmp_to_key
 
 mode = Mode.PART_ONE
 
@@ -25,7 +27,7 @@ def calc_gps(parsed_map: ParsedMap) -> int:
         for x in range(0, len(row)):
             cell = parsed_map[y][x]
 
-            if cell == 'O':
+            if cell == 'O' or cell == '[':
                 sum += (100 * y) + x
     return sum
 
@@ -45,17 +47,75 @@ def move(robot: Robot, parsed_map: ParsedMap, direction: Direction):
         # A box
         case 'O':
             assert mode is Mode.PART_ONE, "only part 1 should have this value"
-            move_boxes(robot, new_position, parsed_map, direction)
+            move_boxes_p1(robot, parsed_map, direction, new_position)
         case '['|']':
             assert mode is Mode.PART_TWO, "only part 2 should have this value"
+            moveable = get_moveable_boxes(parsed_map, direction, robot.pos(), [])
+            if moveable:
+                move_boxes_p2(robot, parsed_map, direction, moveable)
         case _:
             print(f"ERROR: unknown cell type: {target_cell_value}")
 
-def get_moveable_boxes(current_pos: Point, box_stack: list[Point], parsed_map: ParsedMap, direction: Direction):
-    pass
+def get_moveable_boxes(parsed_map: ParsedMap, direction: Direction, current_pos: Point, box_stack: list[Point]) -> list[Point]|None:
+    new_position = get_new_position(current_pos, direction)
+    new_x, new_y = new_position
+    next_cell_value = parsed_map[new_y][new_x]
+
+    if new_position == (8, 6):
+        pass
+
+    match next_cell_value:
+        # can't move
+        case '#': return None
+        # Next cell is empty so we can move the boxes
+        case '.': return box_stack
 
 
-def move_boxes(robot: Robot, box_pos: Point, parsed_map: ParsedMap, direction: Direction):
+    if direction.is_vertical():
+        match next_cell_value:
+            case '[':
+                target_pos = new_x + 1, new_y
+
+                stack_entry = new_x, new_y
+                new_stack = deepcopy(box_stack)
+                new_stack.append(stack_entry)
+
+                right_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+                if right_stack is not None:
+                    return get_moveable_boxes(parsed_map, direction, new_position, right_stack)
+                return None
+            case ']':
+                target_pos = new_x - 1, new_y
+                new_stack = deepcopy(box_stack)
+                new_stack.append(target_pos)
+
+                left_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+                if left_stack is not None:
+                    return get_moveable_boxes(parsed_map, direction, new_position, left_stack)
+                return None
+
+    elif direction.is_horizontal():
+        match next_cell_value:
+            case '[':
+                # we can only continue if we are moving into the correct direction
+                if direction is Direction.RIGHT:
+                    target_pos = new_x + 1, new_y
+                    stack_entry = new_x, new_y
+                    new_stack = deepcopy(box_stack)
+                    new_stack.append(stack_entry)
+                    return get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+            case ']':
+                # we can only continue if we are moving into the correct direction
+                if direction is Direction.LEFT:
+                    target_pos = new_x - 1, new_y
+                    new_stack = deepcopy(box_stack)
+                    new_stack.append(target_pos)
+                    return get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+
+    return box_stack
+
+
+def move_boxes_p1(robot: Robot, parsed_map: ParsedMap, direction: Direction, box_pos: Point):
     box_stack = [box_pos]
 
     can_move = False
@@ -88,6 +148,48 @@ def move_boxes(robot: Robot, box_pos: Point, parsed_map: ParsedMap, direction: D
             parsed_map[y][x] = new_value
 
         robot.move_to(box_pos)
+
+def move_boxes_p2(robot: Robot, parsed_map: ParsedMap, direction: Direction, moveable: list[Point]):
+    # create a unique set of points
+    box_stack = list(set(moveable))
+
+    if len(box_stack) > 0:
+        robot_new_pos = get_new_position(robot.pos(), direction)
+        robot.move_to(robot_new_pos)
+
+        def compare_box_stack(a: Point, b: Point) -> int:
+            a_x, a_y = a
+            b_x, b_y = b
+            match direction:
+                case Direction.UP: return b_y - a_y
+                case Direction.DOWN: return a_y - b_y
+                case Direction.LEFT: return b_x - a_x
+                case Direction.RIGHT: return a_x - b_x
+
+        # Sort the stack based on the direction
+        box_stack.sort(key=cmp_to_key(compare_box_stack))
+
+    while len(box_stack) > 0:
+        x, y = box_stack.pop()
+        match direction:
+            case Direction.UP:
+                parsed_map[y - 1][x] = '['
+                parsed_map[y - 1][x + 1] = ']'
+                parsed_map[y][x] = '.'
+                parsed_map[y][x + 1] = '.'
+            case Direction.DOWN:
+                parsed_map[y + 1][x] = '['
+                parsed_map[y + 1][x + 1] = ']'
+                parsed_map[y][x] = '.'
+                parsed_map[y][x + 1] = '.'
+            case Direction.LEFT:
+                parsed_map[y][x + 1] = '.'
+                parsed_map[y][x] = ']'
+                parsed_map[y][x - 1] = '['
+            case Direction.RIGHT:
+                parsed_map[y][x] = '.'
+                parsed_map[y][x + 1] = '['
+                parsed_map[y][x + 2] = ']'
 
 def parse_input(path: str = "input.txt") -> Input:
     global mode
@@ -151,30 +253,40 @@ def parse_cell_part_two(pos: Point, cell: str, robot: Robot) -> list[str]|None:
             pos = pos[0] * 2, pos[1]
             print(f"Robot is at initial position {pos}")
             robot.move_to(pos)
-            cell = '.'
     return row
 
 if __name__ == '__main__':
+    #input_file = "sample_input.txt"
+    input_file = "input.txt"
+    run_1 = True
+    run_2 = True
+
     # Part 1
-    print("---- PART ONE ----")
-    mode = Mode.PART_ONE
-    parsed_input = parse_input("input.txt")
-    robot = parsed_input.robot
-    directions = parsed_input.directions
-    parsed_map = parsed_input.parsed_map
+    if run_1:
+        print("---- PART ONE ----")
+        mode = Mode.PART_ONE
+        parsed_input = parse_input(input_file)
+        robot = parsed_input.robot
+        directions = parsed_input.directions
+        parsed_map = parsed_input.parsed_map
 
-    for direction in parsed_input.directions:
-        move(robot, parsed_map, direction)
+        for direction in parsed_input.directions:
+            move(robot, parsed_map, direction)
 
-    result = calc_gps(parsed_map)
-    print(f"GPS sum for part 1: {result}")
+        result = calc_gps(parsed_map)
+        print(f"GPS sum for part 1: {result}")
 
     # Part 2
-    print("\n---- PART TWO ----")
-    mode = Mode.PART_TWO
-    parsed_input = parse_input("sample_input.txt")
-    robot = parsed_input.robot
-    directions = parsed_input.directions
-    parsed_map = parsed_input.parsed_map
+    if run_2:
+        print("\n---- PART TWO ----")
+        mode = Mode.PART_TWO
+        parsed_input = parse_input(input_file)
+        robot = parsed_input.robot
+        directions = parsed_input.directions
+        parsed_map = parsed_input.parsed_map
 
-    print(parsed_map)
+        for direction in parsed_input.directions:
+            move(robot, parsed_map, direction)
+
+        result = calc_gps(parsed_map)
+        print(f"GPS sum for part 2: {result}")
