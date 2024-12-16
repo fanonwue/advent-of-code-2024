@@ -25,9 +25,10 @@ def calc_gps(parsed_map: ParsedMap) -> int:
     for y in range(0, len(parsed_map)):
         row = parsed_map[y]
         for x in range(0, len(row)):
-            cell = parsed_map[y][x]
+            cell = row[x]
 
             if cell == 'O' or cell == '[':
+                # formular taken from task description
                 sum += (100 * y) + x
     return sum
 
@@ -57,6 +58,9 @@ def move(robot: Robot, parsed_map: ParsedMap, direction: Direction):
             print(f"ERROR: unknown cell type: {target_cell_value}")
 
 def get_moveable_boxes(parsed_map: ParsedMap, direction: Direction, current_pos: Point, box_stack: list[Point]) -> list[Point]|None:
+    # The box_stack contains the start of a box, so the left side only
+
+
     new_position = get_new_position(current_pos, direction)
     new_x, new_y = new_position
     next_cell_value = parsed_map[new_y][new_x]
@@ -74,41 +78,60 @@ def get_moveable_boxes(parsed_map: ParsedMap, direction: Direction, current_pos:
     if direction.is_vertical():
         match next_cell_value:
             case '[':
+                # left side of a box
+                # since we are on the left side of the box, we need to check the right side of the box
+                # the target_pos now points to the right side of the box, as we need to check that one
                 target_pos = new_x + 1, new_y
 
+                # When encountering the left side of a box, we are already at the correct side of the box so we
+                # need to save the boxes position directly to our stack.
+                # Remember: Our stack only contains the left side of a box
                 stack_entry = new_x, new_y
                 new_stack = deepcopy(box_stack)
                 new_stack.append(stack_entry)
-
-                right_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
-                if right_stack is not None:
-                    return get_moveable_boxes(parsed_map, direction, new_position, right_stack)
+                right_side_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+                # If the right side did not hit a wall (did not return None), we need to check the left side as well
+                if right_side_stack is not None:
+                    # if we have the start (left side) of moveable boxes on the right side of the box, we continue with those in mind
+                    return get_moveable_boxes(parsed_map, direction, new_position, right_side_stack)
+                # right side hit a wall, so we can't move anything
                 return None
             case ']':
+                # right side of a box
+                # target_pos points to the left side, as we need to check that as well
                 target_pos = new_x - 1, new_y
                 new_stack = deepcopy(box_stack)
                 new_stack.append(target_pos)
 
-                left_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
-                if left_stack is not None:
-                    return get_moveable_boxes(parsed_map, direction, new_position, left_stack)
+                left_side_stack = get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
+
+                # If the left side did not hit a wall (did not return None), we need to check the right side as well
+                if left_side_stack is not None:
+                    return get_moveable_boxes(parsed_map, direction, new_position, left_side_stack)
                 return None
 
     elif direction.is_horizontal():
         match next_cell_value:
             case '[':
+                # we hit the left side of the box, meaning new_position points to the start of a box
                 # we can only continue if we are moving into the correct direction
+                # when hitting the left side of a box we need to move right to move it
                 if direction is Direction.RIGHT:
                     target_pos = new_x + 1, new_y
+                    # as our stack saves the start of boxes, we need to add new_position directly
                     stack_entry = new_x, new_y
                     new_stack = deepcopy(box_stack)
                     new_stack.append(stack_entry)
                     return get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
             case ']':
+                # we hit the right side of the box, meaning new_position points to the end of a box
                 # we can only continue if we are moving into the correct direction
+                # when hitting the right side of a box we need to move left to move it
                 if direction is Direction.LEFT:
                     target_pos = new_x - 1, new_y
                     new_stack = deepcopy(box_stack)
+                    # we need to move one step to the left to find the start of the box, so instead of new_position
+                    # we save target_pos, which got moved already
                     new_stack.append(target_pos)
                     return get_moveable_boxes(parsed_map, direction, target_pos, new_stack)
 
@@ -129,6 +152,7 @@ def move_boxes_p1(robot: Robot, parsed_map: ParsedMap, direction: Direction, box
             # a wall, can't move
             case '#': return
             case '.':
+                # we found a free spot behind the box, meaning it can move
                 can_move = True
                 box_stack.append((new_x, new_y))
             case 'O':
@@ -140,6 +164,8 @@ def move_boxes_p1(robot: Robot, parsed_map: ParsedMap, direction: Direction, box
             break
 
     if can_move:
+        # We can move, so we can start moving all boxes into the direction we are going
+        # We need to move the last box we found first to make room, so we use our list of boxes like a stack
         while len(box_stack) > 0:
             x, y = box_stack.pop()
             new_value = '.'
@@ -150,7 +176,7 @@ def move_boxes_p1(robot: Robot, parsed_map: ParsedMap, direction: Direction, box
         robot.move_to(box_pos)
 
 def move_boxes_p2(robot: Robot, parsed_map: ParsedMap, direction: Direction, moveable: list[Point]):
-    # create a unique set of points
+    # create a unique set of points as we can move a box only once
     box_stack = list(set(moveable))
 
     if len(box_stack) > 0:
@@ -160,6 +186,10 @@ def move_boxes_p2(robot: Robot, parsed_map: ParsedMap, direction: Direction, mov
         def compare_box_stack(a: Point, b: Point) -> int:
             a_x, a_y = a
             b_x, b_y = b
+            # We need to move the boxes in order. If there is a box at (1, 1) and another at (1, 2) and we are moving UP,
+            # we have to first check whether we can move the box at the back (1, 1) before moving (1, 2)
+            # as we can't move anything if the last box in that direction is blocked
+            # The box at the front of the list is also the box directly in front of us
             match direction:
                 case Direction.UP: return b_y - a_y
                 case Direction.DOWN: return a_y - b_y
@@ -170,8 +200,10 @@ def move_boxes_p2(robot: Robot, parsed_map: ParsedMap, direction: Direction, mov
         box_stack.sort(key=cmp_to_key(compare_box_stack))
 
     while len(box_stack) > 0:
+        # Move the boxes in order, starting with the one at the back of the line we have to move
         x, y = box_stack.pop()
         match direction:
+            # When moving up or down, we always assume that we hit the left side of the box
             case Direction.UP:
                 parsed_map[y - 1][x] = '['
                 parsed_map[y - 1][x + 1] = ']'
@@ -235,6 +267,7 @@ def parse_cell_part_one(pos: Point, cell: str, robot: Robot) -> str|None:
     return cell
 
 def parse_cell_part_two(pos: Point, cell: str, robot: Robot) -> list[str]|None:
+    # for part 2, the grid has doubled width
     row = []
     match cell:
         case "\n": return None
@@ -245,25 +278,33 @@ def parse_cell_part_two(pos: Point, cell: str, robot: Robot) -> list[str]|None:
             row.append('.')
             row.append('.')
         case 'O':
+            # a box is no longer a singular position, but instead has a start and an end
             row.append('[')
             row.append(']')
         case '@':
             row.append('.')
             row.append('.')
+            # Adjust the robot position for the double width grid
             pos = pos[0] * 2, pos[1]
             print(f"Robot is at initial position {pos}")
             robot.move_to(pos)
     return row
 
 if __name__ == '__main__':
+    # Specify the input file to use
+    # sample_input.txt contains the large example of this AoC task as found on the Day-15 website
+
     #input_file = "sample_input.txt"
     input_file = "input.txt"
+
     run_1 = True
     run_2 = True
 
     # Part 1
     if run_1:
         print("---- PART ONE ----")
+        # set global mode to PART_ONE
+        # this affects several functions
         mode = Mode.PART_ONE
         parsed_input = parse_input(input_file)
         robot = parsed_input.robot
